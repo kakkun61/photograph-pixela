@@ -22,12 +22,22 @@ description:         Please see the README on GitHub at <https://github.com/kakk
 dependencies:
 - base >= 4.7 && < 5
 - bytestring
+- cereal
 - directory
 - filepath
+- hsexif
 - optparse-declarative
 - pixela
 - process
 - pureMD5
+- time
+
+ghc-options:
+  - -Wall
+  - -fwarn-tabs
+  - -fwarn-incomplete-record-updates
+  - -fwarn-monomorphism-restriction
+  - -fwarn-unused-do-bind
 
 library:
   source-dirs: src
@@ -36,7 +46,6 @@ executables:
   photograph-pixela:
     main:                Main.hs
     source-dirs:         app
-    ghc-options:         []
     dependencies:
     - photograph-pixela
 
@@ -44,6 +53,5 @@ tests:
   photograph-pixela-test:
     main:                Spec.hs
     source-dirs:         test
-    ghc-options:         []
     dependencies:
     - photograph-pixela

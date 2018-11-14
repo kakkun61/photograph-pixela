@@ -4,38 +4,66 @@ import qualified Data.ByteString as ByteString
 import Data.Digest.Pure.MD5
 import Data.Foldable
 import Data.Time
-import System.Process
+import Graphics.HsExif
 import System.FilePath
 import System.Directory
+import Data.Serialize
 
 main :: IO ()
 main = do
-  doFile ".photography-pixela" "." "_DSC1103.ARW"
+  timeZone <- getCurrentTimeZone
+  doFile timeZone ".photography-pixela" "." "_DSC1098.ARW"
 
-doDirectory :: FilePath -> FilePath -> IO ()
-doDirectory cacheDir dir = do
+doDirectory :: TimeZone -> FilePath -> FilePath -> IO ()
+doDirectory timeZone cacheDir dir = do
   paths <- listDirectory dir
   (dirs, files) <- dirFile dir paths
   let
     photos = filter ((`elem` [".ARW", ".JPG"]) . takeExtension) files
-  for_ photos $ doFile cacheDir dir
+  for_ photos $ doFile timeZone cacheDir dir
 
-doFile :: FilePath -> FilePath -> FilePath -> IO ()
-doFile cacheDir dir filePath = do
+doFile :: TimeZone -> FilePath -> FilePath -> FilePath -> IO ()
+doFile timeZone cacheDir dir filePath = do
   let
     cache = cacheDir </> dir </> filePath
+    photo = dir </> filePath
   cached <- doesFileExist $ cache
   if cached
     then do
       putStrLn $ "cached: " <> dir </> filePath
       cachedTime <- getModificationTime cache
       print cachedTime
+      fileTime <- getModificationTime photo
+      print fileTime
+      originalTime <- zonedTimeToUTC  . (\lt -> ZonedTime lt timeZone) <$> exifDateTimeOriginal photo
+      print originalTime
+      if fileTime <= cachedTime
+        then putStrLn "nothing to do"
+        else do
+          -- modified after the previous check
+          -- compare file hashes
+          putStrLn "modified after the previous check"
+          hashValue <- hash' <$> ByteString.readFile (dir </> filePath) :: IO MD5Digest
+          print hashValue
+          prevHashValueOrErro <- decode <$> ByteString.readFile cache
+          case prevHashValueOrErro of
+            Right prevHashValue -> do
+              print prevHashValue
+              if hashValue == prevHashValue
+                then do
+                  putStrLn "update cached modificationtime"
+                  setModificationTime cache fileTime
+                else do
+                  putStrLn "TODO: upload"
+                  ByteString.writeFile cache $ encode hashValue
+            Left err -> error err
     else do
       putStrLn $ "not cached: " <> dir </> filePath
-      md5 <- hash' <$> ByteString.readFile (dir </> filePath) :: IO MD5Digest
-      print md5
+      hashValue <- hash' <$> ByteString.readFile (dir </> filePath) :: IO MD5Digest
+      print hashValue
+      putStrLn "TODO: upload"
       createDirectoryIfMissing True $ cacheDir </> dir
-      writeFile cache $ show md5
+      ByteString.writeFile cache $ encode hashValue
 
 dirFile :: FilePath -> [FilePath] -> IO ([FilePath], [FilePath])
 dirFile dir = go ([], [])
@@ -51,14 +79,7 @@ dirFile dir = go ([], [])
             then go (ds, path:fs) rest
             else go acc rest
 
-exifDateTimeOriginal = do
-  dt <-
-    readProcess
-      "exiftool"
-      ["-DateTimeOriginal", path]
-      ""
-      >>=
-        parseTimeM
-          True
-          defaultTimeLocale
-          "%Y:%m:%d %T"
+exifDateTimeOriginal :: FilePath -> IO LocalTime
+exifDateTimeOriginal path = do
+  exif <- either error id <$> parseFileExif path
+  maybe (error "no Data/Time Original") pure $ getDateTimeOriginal exif
