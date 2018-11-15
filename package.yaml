@@ -21,8 +21,10 @@ description:         Please see the README on GitHub at <https://github.com/kakk
 
 dependencies:
 - base >= 4.7 && < 5
+- aeson
 - bytestring
 - cereal
+- data-default-class
 - directory
 - filepath
 - hsexif
@@ -30,7 +32,9 @@ dependencies:
 - pixela
 - process
 - pureMD5
+- scientific
 - time
+- yaml
 
 ghc-options:
   - -Wall

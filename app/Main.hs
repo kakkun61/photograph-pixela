@@ -7,23 +7,27 @@ import Data.Time
 import Graphics.HsExif
 import System.FilePath
 import System.Directory
-import Data.Serialize
+import qualified Data.Serialize as Cereal
+import qualified Web.Pixela as Pixela
+import qualified Data.Yaml as Yaml
+
+import Config (Config (Config), readConfig)
 
 main :: IO ()
 main = do
-  timeZone <- getCurrentTimeZone
-  doFile timeZone ".photography-pixela" "." "_DSC1098.ARW"
+  config <- readConfig ".photography-pixela.yaml"
+  doFile config ".photography-pixela" "." "_DSC1098.ARW"
 
-doDirectory :: TimeZone -> FilePath -> FilePath -> IO ()
-doDirectory timeZone cacheDir dir = do
+doDirectory :: Config -> FilePath -> FilePath -> IO ()
+doDirectory config cacheDir dir = do
   paths <- listDirectory dir
-  (dirs, files) <- dirFile dir paths
+  (_dirs, files) <- dirFile dir paths
   let
     photos = filter ((`elem` [".ARW", ".JPG"]) . takeExtension) files
-  for_ photos $ doFile timeZone cacheDir dir
+  foldlM (doFile config cacheDir dir) mempty photos
 
-doFile :: TimeZone -> FilePath -> FilePath -> FilePath -> IO ()
-doFile timeZone cacheDir dir filePath = do
+doFile :: Config -> FilePath -> FilePath -> FilePath -> IO ()
+doFile (Config timeZone _ _) cacheDir dir filePath = do
   let
     cache = cacheDir </> dir </> filePath
     photo = dir </> filePath
@@ -35,8 +39,9 @@ doFile timeZone cacheDir dir filePath = do
       print cachedTime
       fileTime <- getModificationTime photo
       print fileTime
-      originalTime <- zonedTimeToUTC  . (\lt -> ZonedTime lt timeZone) <$> exifDateTimeOriginal photo
+      originalTime <- zonedTimeToUTC . (\lt -> ZonedTime lt timeZone) <$> exifDateTimeOriginal photo
       print originalTime
+      let originalDay = utctDay originalTime
       if fileTime <= cachedTime
         then putStrLn "nothing to do"
         else do
@@ -45,7 +50,7 @@ doFile timeZone cacheDir dir filePath = do
           putStrLn "modified after the previous check"
           hashValue <- hash' <$> ByteString.readFile (dir </> filePath) :: IO MD5Digest
           print hashValue
-          prevHashValueOrErro <- decode <$> ByteString.readFile cache
+          prevHashValueOrErro <- Cereal.decode <$> ByteString.readFile cache
           case prevHashValueOrErro of
             Right prevHashValue -> do
               print prevHashValue
@@ -55,7 +60,7 @@ doFile timeZone cacheDir dir filePath = do
                   setModificationTime cache fileTime
                 else do
                   putStrLn "TODO: upload"
-                  ByteString.writeFile cache $ encode hashValue
+                  ByteString.writeFile cache $ Cereal.encode hashValue
             Left err -> error err
     else do
       putStrLn $ "not cached: " <> dir </> filePath
@@ -63,7 +68,7 @@ doFile timeZone cacheDir dir filePath = do
       print hashValue
       putStrLn "TODO: upload"
       createDirectoryIfMissing True $ cacheDir </> dir
-      ByteString.writeFile cache $ encode hashValue
+      ByteString.writeFile cache $ Cereal.encode hashValue
 
 dirFile :: FilePath -> [FilePath] -> IO ([FilePath], [FilePath])
 dirFile dir = go ([], [])
