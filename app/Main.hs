@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 module Main where
 
 import qualified Data.ByteString as ByteString
@@ -10,21 +12,35 @@ import System.Directory
 import qualified Data.Serialize as Cereal
 import qualified Web.Pixela as Pixela
 import qualified Data.Yaml as Yaml
+import Options.Declarative
+import Data.Version (showVersion)
+import Control.Monad.IO.Class
+
+import Paths_photograph_pixela (version)
 
 import Config (Config (Config), readConfig)
 
 main :: IO ()
-main = do
-  config <- readConfig ".photography-pixela.yaml"
-  doFile config ".photography-pixela" "." "_DSC1098.ARW"
+main =
+  run "photograph-pixela" (Just $ showVersion version) command
+
+command
+  :: Flag "c" '["config"] "FILE" "configuration file. default \".photography-pixela.yaml\"" (Def ".photography-pixela.yaml" String)
+  -> Flag "s" '["cache"] "DIR" "cache directory. default \".photography-pixela\"" (Def ".photography-pixela" String)
+  -> Cmd "Upload shot dates to Pixela" ()
+command configPath cachePath =
+  liftIO $ do
+    config <- readConfig $ get configPath
+    doDirectory config (get cachePath) "."
 
 doDirectory :: Config -> FilePath -> FilePath -> IO ()
 doDirectory config cacheDir dir = do
   paths <- listDirectory dir
-  (_dirs, files) <- dirFile dir paths
+  (dirs, files) <- dirFile dir paths
   let
     photos = filter ((`elem` [".ARW", ".JPG"]) . takeExtension) files
-  foldlM (doFile config cacheDir dir) mempty photos
+  traverse_ (doFile config cacheDir dir) photos
+  traverse_ (doDirectory config cacheDir) dirs
 
 doFile :: Config -> FilePath -> FilePath -> FilePath -> IO ()
 doFile (Config timeZone _ _) cacheDir dir filePath = do
