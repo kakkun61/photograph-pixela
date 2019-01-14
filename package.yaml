@@ -28,34 +28,26 @@ dependencies:
 - directory
 - filepath
 - hsexif
+- lens
+- lens-aeson
 - optparse-declarative
 - pixela
 - process
 - pureMD5
 - scientific
+- text
 - time
 - yaml
 
 ghc-options:
   - -Wall
+  - -Wcompat
   - -fwarn-tabs
   - -fwarn-incomplete-record-updates
   - -fwarn-monomorphism-restriction
   - -fwarn-unused-do-bind
 
-library:
-  source-dirs: src
-
 executables:
   photograph-pixela:
     main:                Main.hs
     source-dirs:         app
-    dependencies:
-    - photograph-pixela
-
-tests:
-  photograph-pixela-test:
-    main:                Spec.hs
-    source-dirs:         test
-    dependencies:
-    - photograph-pixela

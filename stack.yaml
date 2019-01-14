@@ -5,7 +5,7 @@ packages:
 
 extra-deps:
 - optparse-declarative-0.3.0@sha256:12d6a258b528e66fadf9d040447523b2a4ed376bed5e557a94e8148e9fba8c2b
-- pixela-0.2.1.0@sha256:5a366c7b122328ca7546bdfd9c96ecd19b5d921a4fd3b086d48d35f60183cc05
+- pixela-0.3.1.0@sha256:7b4032593270d31555e87a2705558468208ba8ab3594d9a9f3ba2cd9c7e762e8
 
 flags:
   hsexif:
